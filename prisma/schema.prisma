@@ -1,0 +1,374 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id                    String               @id @default(cuid())
+  name                  String
+  type                  String?
+  regNumber             String?              @map("registration_number")
+  ownerId               String               @map("owner_id")
+  address               String?
+  phone                 String?
+  email                 String?
+  logoUrl               String?              @map("logo_url")
+  subscription          String               @default("FREE")
+  subscriptionExpiresAt DateTime?            @map("subscription_expires_at")
+  settings              Json?
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  businesses            Business[]
+  members               OrganizationMember[]
+  owner                 User                 @relation("OwnedOrganizations", fields: [ownerId], references: [id], onDelete: Cascade)
+  roles                 Role[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  userId         String       @map("user_id")
+  roleId         String       @map("role_id")
+  status         String       @default("ACTIVE")
+  invitedAt      DateTime?    @map("invited_at")
+  joinedAt       DateTime?    @map("joined_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id])
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+model Role {
+  id             String               @id @default(cuid())
+  organizationId String               @map("organization_id")
+  name           String
+  permissions    Json
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  members        OrganizationMember[]
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@map("roles")
+}
+
+model Business {
+  id             String       @id @default(cuid())
+  name           String
+  type           String
+  organizationId String       @map("organization_id")
+  address        String?
+  phone          String?
+  logoUrl        String?      @map("logo_url")
+  currency       String       @default("PKR")
+  timezone       String       @default("Asia/Karachi")
+  language       String       @default("en")
+  taxNumber      String?      @map("tax_number")
+  gstNumber      String?      @map("gst_number")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  branches       Branch[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customers      Customer[]
+  expenses       Expense[]
+  products       Product[]
+
+  @@map("businesses")
+}
+
+model Branch {
+  id           String            @id @default(cuid())
+  businessId   String            @map("business_id")
+  name         String
+  address      String?
+  phone        String?
+  managerId    String?           @map("manager_id")
+  status       String            @default("ACTIVE")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  inventory    BranchInventory[]
+  business     Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  manager      User?             @relation("ManagedBranches", fields: [managerId], references: [id])
+  customers    Customer[]
+  departments  Department[]
+  invoices     Invoice[]
+  transactions Transaction[]
+
+  @@map("branches")
+}
+
+model Department {
+  id           String            @id @default(cuid())
+  branchId     String            @map("branch_id")
+  name         String
+  managerId    String?           @map("manager_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  inventory    BranchInventory[]
+  branch       Branch            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  manager      User?             @relation("ManagedDepartments", fields: [managerId], references: [id])
+  transactions Transaction[]
+
+  @@map("departments")
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  password           String
+  name               String
+  phone              String?
+  profilePicture     String?              @map("profile_picture")
+  status             String               @default("ACTIVE")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  accounts           Account[]
+  managedBranches    Branch[]             @relation("ManagedBranches")
+  managedDepartments Department[]         @relation("ManagedDepartments")
+  expenses           Expense[]            @relation("CreatedExpenses")
+  memberships        OrganizationMember[]
+  ownedOrganizations Organization[]       @relation("OwnedOrganizations")
+  sessions           Session[]
+  stockMovements     StockMovement[]
+  transactions       Transaction[]        @relation("CreatedTransactions")
+
+  @@map("users")
+}
+
+model Customer {
+  id               String            @id @default(cuid())
+  name             String
+  phone            String
+  email            String?
+  address          String?
+  businessId       String            @map("business_id")
+  branchId         String?           @map("branch_id")
+  creditLimit      Decimal?          @map("credit_limit") @db.Decimal(10, 2)
+  customerType     String            @default("RETAIL")
+  status           String            @default("ACTIVE")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  branch           Branch?           @relation(fields: [branchId], references: [id])
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  invoices         Invoice[]
+  paymentReminders PaymentReminder[]
+  transactions     Transaction[]
+
+  @@index([businessId])
+  @@index([phone])
+  @@map("customers")
+}
+
+model Product {
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  sku              String?           @unique
+  barcode          String?
+  businessId       String            @map("business_id")
+  category         String?
+  subcategory      String?
+  costPrice        Decimal           @map("cost_price") @db.Decimal(10, 2)
+  sellingPrice     Decimal           @map("selling_price") @db.Decimal(10, 2)
+  unit             String            @default("piece")
+  taxRate          Decimal?          @map("tax_rate") @db.Decimal(5, 2)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  branchInventory  BranchInventory[]
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  transactionItems TransactionItem[]
+
+  @@index([businessId])
+  @@map("products")
+}
+
+model BranchInventory {
+  id                String          @id @default(cuid())
+  productId         String          @map("product_id")
+  branchId          String          @map("branch_id")
+  departmentId      String?         @map("department_id")
+  stock             Decimal         @default(0) @db.Decimal(10, 2)
+  lowStockThreshold Decimal?        @map("low_stock_threshold") @db.Decimal(10, 2)
+  lastRestocked     DateTime?       @map("last_restocked")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  branch            Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  department        Department?     @relation(fields: [departmentId], references: [id])
+  product           Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockMovements    StockMovement[]
+
+  @@unique([productId, branchId, departmentId])
+  @@map("branch_inventory")
+}
+
+model Transaction {
+  id               String            @id @default(cuid())
+  type             String
+  customerId       String            @map("customer_id")
+  businessId       String            @map("business_id")
+  branchId         String            @map("branch_id")
+  departmentId     String?           @map("department_id")
+  amount           Decimal           @db.Decimal(10, 2)
+  description      String?
+  referenceNumber  String?           @map("reference_number")
+  paymentMethod    String            @map("payment_method")
+  status           String            @default("PENDING")
+  dueDate          DateTime?         @map("due_date")
+  createdById      String            @map("created_by_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  invoice          Invoice?
+  paymentReminders PaymentReminder[]
+  items            TransactionItem[]
+  branch           Branch            @relation(fields: [branchId], references: [id])
+  createdBy        User              @relation("CreatedTransactions", fields: [createdById], references: [id])
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  department       Department?       @relation(fields: [departmentId], references: [id])
+
+  @@index([customerId])
+  @@index([branchId])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id            String      @id @default(cuid())
+  transactionId String      @map("transaction_id")
+  productId     String?     @map("product_id")
+  description   String
+  quantity      Decimal     @db.Decimal(10, 2)
+  unitPrice     Decimal     @map("unit_price") @db.Decimal(10, 2)
+  totalPrice    Decimal     @map("total_price") @db.Decimal(10, 2)
+  taxAmount     Decimal?    @map("tax_amount") @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  product       Product?    @relation(fields: [productId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("transaction_items")
+}
+
+model Invoice {
+  id            String      @id @default(cuid())
+  invoiceNumber String      @unique @map("invoice_number")
+  transactionId String      @unique @map("transaction_id")
+  customerId    String      @map("customer_id")
+  branchId      String      @map("branch_id")
+  totalAmount   Decimal     @map("total_amount") @db.Decimal(10, 2)
+  taxAmount     Decimal?    @map("tax_amount") @db.Decimal(10, 2)
+  paidAmount    Decimal     @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  balanceAmount Decimal     @map("balance_amount") @db.Decimal(10, 2)
+  status        String      @default("DRAFT")
+  dueDate       DateTime?   @map("due_date")
+  paidDate      DateTime?   @map("paid_date")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  branch        Branch      @relation(fields: [branchId], references: [id])
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  businessId    String   @map("business_id")
+  branchId      String?  @map("branch_id")
+  category      String
+  amount        Decimal  @db.Decimal(10, 2)
+  description   String?
+  paymentMethod String   @map("payment_method")
+  receiptUrl    String?  @map("receipt_url")
+  expenseDate   DateTime @map("expense_date")
+  createdById   String   @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdBy     User     @relation("CreatedExpenses", fields: [createdById], references: [id])
+
+  @@index([businessId])
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+model PaymentReminder {
+  id            String      @id @default(cuid())
+  customerId    String      @map("customer_id")
+  transactionId String      @map("transaction_id")
+  method        String
+  status        String      @default("PENDING")
+  scheduledAt   DateTime    @map("scheduled_at")
+  sentAt        DateTime?   @map("sent_at")
+  message       String
+  createdAt     DateTime    @default(now()) @map("created_at")
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt])
+  @@map("payment_reminders")
+}
+
+model StockMovement {
+  id                String          @id @default(cuid())
+  productId         String          @map("product_id")
+  branchInventoryId String          @map("branch_inventory_id")
+  type              String
+  quantity          Decimal         @db.Decimal(10, 2)
+  reason            String?
+  referenceId       String?         @map("reference_id")
+  fromBranchId      String?         @map("from_branch_id")
+  toBranchId        String?         @map("to_branch_id")
+  createdById       String          @map("created_by_id")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  branchInventory   BranchInventory @relation(fields: [branchInventoryId], references: [id], onDelete: Cascade)
+  createdBy         User            @relation(fields: [createdById], references: [id])
+
+  @@index([branchInventoryId])
+  @@map("stock_movements")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
