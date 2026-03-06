@@ -52,7 +52,7 @@ export default function OrganizationsPage() {
     reset,
     formState: { errors },
   } = useForm<OrganizationFormValues>({
-    resolver: zodResolver(organizationSchema),
+    resolver: zodResolver(organizationSchema) as any,
   })
 
   // Fetch organizations

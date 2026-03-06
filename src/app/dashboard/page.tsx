@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Building2, Users, Receipt, TrendingUp } from "lucide-react"
+import { getDashboardMetrics } from "@/lib/metrics"
 
 export default async function DashboardPage() {
     const session = await getServerSession(authOptions)
@@ -11,31 +12,33 @@ export default async function DashboardPage() {
         redirect("/login")
     }
 
+    const data = await getDashboardMetrics(session.user.id)
+
     const metrics = [
         {
             title: "Total Customers",
-            value: "0",
+            value: data.totalCustomers.toString(),
             description: "Active customers",
             icon: Users,
-            trend: "+0%",
+            trend: "", // Trend calculation requires historical data not yet available
         },
         {
             title: "Outstanding Balance",
-            value: "PKR 0",
+            value: `PKR ${data.totalPendingPayments.toLocaleString()}`,
             description: "Total receivables",
             icon: TrendingUp,
-            trend: "+0%",
+            trend: "",
         },
         {
             title: "Transactions Today",
-            value: "0",
+            value: data.totalTransactionsToday.toString(),
             description: "Sales & purchases",
             icon: Receipt,
-            trend: "+0%",
+            trend: "",
         },
         {
             title: "Organizations",
-            value: "0",
+            value: data.organizationsCount.toString(),
             description: "Your businesses",
             icon: Building2,
             trend: "",

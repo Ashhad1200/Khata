@@ -5,10 +5,12 @@ import prisma from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
 
 // GET /api/branches/[branchId]/transactions - List transactions
+// GET /api/branches/[branchId]/transactions - List transactions
 export async function GET(
     request: Request,
-    { params }: { params: { branchId: string } }
+    props: { params: Promise<{ branchId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -81,10 +83,12 @@ export async function GET(
 }
 
 // POST /api/branches/[branchId]/transactions - Create transaction
+// POST /api/branches/[branchId]/transactions - Create transaction
 export async function POST(
     request: Request,
-    { params }: { branchId: string } }
+    props: { params: Promise<{ branchId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 

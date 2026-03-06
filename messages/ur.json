@@ -1,0 +1,23 @@
+{
+  "Dashboard": {
+    "title": "ڈیش بورڈ",
+    "welcome": "خوش آمدید، {name}!",
+    "totalCustomers": "کل کسٹمرز",
+    "outstandingBalance": "باقی رقم",
+    "transactionsToday": "آج کے لین دین",
+    "organizations": "تنظیمیں",
+    "quickActions": "فوری کام",
+    "createOrg": "تنظیم بنائیں",
+    "addCustomer": "کسٹمر شامل کریں",
+    "recordTrans": "لین دین درج کریں"
+  },
+  "Navigation": {
+    "home": "ہوم",
+    "customers": "کسٹمرز",
+    "inventory": "انوینٹری",
+    "invoices": "انوائسز",
+    "expenses": "اخراجات",
+    "reports": "رپورٹس",
+    "settings": "سیٹنگز"
+  }
+}

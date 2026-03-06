@@ -1,0 +1,23 @@
+{
+  "Dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back, {name}!",
+    "totalCustomers": "Total Customers",
+    "outstandingBalance": "Outstanding Balance",
+    "transactionsToday": "Transactions Today",
+    "organizations": "Organizations",
+    "quickActions": "Quick Actions",
+    "createOrg": "Create Organization",
+    "addCustomer": "Add Customer",
+    "recordTrans": "Record Transaction"
+  },
+  "Navigation": {
+    "home": "Home",
+    "customers": "Customers",
+    "inventory": "Inventory",
+    "invoices": "Invoices",
+    "expenses": "Expenses",
+    "reports": "Reports",
+    "settings": "Settings"
+  }
+}

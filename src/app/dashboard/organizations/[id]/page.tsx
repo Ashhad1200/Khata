@@ -62,7 +62,13 @@ export default function OrganizationDetailPage() {
     reset,
     formState: { errors },
   } = useForm<BusinessFormValues>({
-    resolver: zodResolver(businessSchema),
+    resolver: zodResolver(businessSchema) as any,
+    defaultValues: {
+      name: "",
+      phone: "",
+      address: "",
+      currency: "PKR",
+    },
   })
 
   const fetchOrganization = async () => {
@@ -76,7 +82,7 @@ export default function OrganizationDetailPage() {
       }
 
       const data = await response.json()
-      setOrganization(data)
+      setOrganization(data.organization)
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
       console.error("Error fetching organization:", err)

@@ -7,8 +7,9 @@ import { Decimal } from "@prisma/client/runtime/library"
 // GET /api/businesses/[businessId]/expenses - List expenses
 export async function GET(
     request: Request,
-    { params }: { params: { businessId: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -27,7 +28,7 @@ export async function GET(
 
         const expenses = await prisma.expense.findMany({
             where: {
-                businessId: params.businessId,
+                businessId: params.id,
                 ...(category && { category }),
                 ...(branchId && { branchId }),
                 ...(startDate && endDate && {
@@ -69,8 +70,9 @@ export async function GET(
 // POST /api/businesses/[businessId]/expenses - Create expense
 export async function POST(
     request: Request,
-    { params }: { params: { businessId: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -101,7 +103,7 @@ export async function POST(
 
         const expense = await prisma.expense.create({
             data: {
-                businessId: params.businessId,
+                businessId: params.id,
                 branchId,
                 category,
                 amount: new Decimal(amount),

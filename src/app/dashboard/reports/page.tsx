@@ -1,5 +1,7 @@
-"use client"
-
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { getReportMetrics } from "@/lib/metrics"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
     TrendingUp,
@@ -8,11 +10,19 @@ import {
     Users,
     Package,
     Receipt,
-    Calendar,
     BarChart3
 } from "lucide-react"
+import { ReportExportButtons } from "@/components/report-export-buttons"
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+    const session = await getServerSession(authOptions)
+
+    if (!session) {
+        redirect("/login")
+    }
+
+    const data = await getReportMetrics(session.user.id)
+
     return (
         <div className="p-8">
             <div className="mb-8">
@@ -30,7 +40,7 @@ export default function ReportsPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">PKR 0</div>
+                        <div className="text-2xl font-bold">PKR {data.totalRevenue.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground flex items-center mt-1">
                             <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
                             <span className="text-green-500">0%</span> from last month
@@ -44,7 +54,7 @@ export default function ReportsPage() {
                         <TrendingDown className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">PKR 0</div>
+                        <div className="text-2xl font-bold">PKR {data.totalExpenses.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground flex items-center mt-1">
                             <TrendingDown className="h-3 w-3 mr-1 text-red-500" />
                             <span className="text-red-500">0%</span> from last month
@@ -58,7 +68,9 @@ export default function ReportsPage() {
                         <BarChart3 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">PKR 0</div>
+                        <div className={`text-2xl font-bold ${data.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            PKR {data.netProfit.toLocaleString()}
+                        </div>
                         <p className="text-xs text-muted-foreground">Revenue - Expenses</p>
                     </CardContent>
                 </Card>
@@ -69,7 +81,7 @@ export default function ReportsPage() {
                         <Receipt className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-yellow-600">PKR 0</div>
+                        <div className="text-2xl font-bold text-yellow-600">PKR {data.outstandingPayments.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground">Pending payments</p>
                     </CardContent>
                 </Card>
@@ -210,14 +222,14 @@ export default function ReportsPage() {
                 </Card>
             </div>
 
-            {/* Date Range Selector Placeholder */}
+            {/* Date Range Selector & Export Actions */}
             <Card className="mt-8">
                 <CardHeader>
-                    <CardTitle>Report Filters</CardTitle>
-                    <CardDescription>Select date range and filters for detailed reports</CardDescription>
+                    <CardTitle>Report Filters & Export</CardTitle>
+                    <CardDescription>Select date range and export detailed reports</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Start Date</label>
                             <input
@@ -242,17 +254,8 @@ export default function ReportsPage() {
                             </select>
                         </div>
                     </div>
-                    <div className="mt-4 flex gap-2">
-                        <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90">
-                            Generate Report
-                        </button>
-                        <button className="px-4 py-2 border border-input rounded-md text-sm font-medium hover:bg-accent">
-                            Export PDF
-                        </button>
-                        <button className="px-4 py-2 border border-input rounded-md text-sm font-medium hover:bg-accent">
-                            Export Excel
-                        </button>
-                    </div>
+                    
+                    <ReportExportButtons data={data} />
                 </CardContent>
             </Card>
         </div>

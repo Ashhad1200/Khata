@@ -49,9 +49,10 @@ export async function GET() {
             }
         })
 
-        return NextResponse.json({ organizations })
+        console.log(`[ORGANIZATIONS_GET] Found ${organizations.length} organizations for user ${session.user.id}`)
+        return NextResponse.json(organizations)
     } catch (error) {
-        console.error("[ORGANIZATIONS_GET]", error)
+        console.error("[ORGANIZATIONS_GET] Error:", error)
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

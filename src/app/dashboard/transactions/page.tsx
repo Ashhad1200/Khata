@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SearchBar } from "@/components/ui/search-bar"
+import { Pagination } from "@/components/ui/pagination"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -40,7 +42,7 @@ export default function TransactionsPage() {
         reset,
         formState: { errors },
     } = useForm<TransactionFormValues>({
-        resolver: zodResolver(transactionSchema),
+        resolver: zodResolver(transactionSchema) as any,
         defaultValues: {
             type: "CREDIT",
             paymentMethod: "CASH",
@@ -50,16 +52,101 @@ export default function TransactionsPage() {
     const onSubmit = async (data: TransactionFormValues) => {
         setIsSubmitting(true)
         try {
-            // Placeholder - would need businessId and customerId from context
-            console.log("Transaction data:", data)
-            alert("Transaction recorded (demo mode)")
+            // Get businessId from URL or context
+            const businessId = new URLSearchParams(window.location.search).get('businessId') || 'default-business-id'
+
+            const response = await fetch(`/api/businesses/${businessId}/transactions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ...data,
+                    customerId: selectedCustomerId,
+                    type: transactionType,
+                    amount: parseFloat(data.amount),
+                }),
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.message || 'Failed to create transaction')
+            }
+
+            const result = await response.json()
+            alert(`Transaction recorded successfully! ID: ${result.id}`)
             setIsDialogOpen(false)
             reset()
+            // Refresh transactions list
+            fetchTransactions()
         } catch (error) {
-            alert("An error occurred")
+            console.error('Transaction error:', error)
+            alert(error instanceof Error ? error.message : 'An error occurred')
         } finally {
             setIsSubmitting(false)
         }
+    }
+
+    const [transactions, setTransactions] = useState<any[]>([])
+    const [businesses, setBusinesses] = useState<any[]>([])
+    const [selectedBusinessId, setSelectedBusinessId] = useState<string>("")
+    const [isLoading, setIsLoading] = useState(true)
+
+    // Fetch businesses and transactions
+    const fetchInitialData = async () => {
+        try {
+            const orgResponse = await fetch("/api/organizations")
+            if (orgResponse.ok) {
+                const orgs = await orgResponse.json()
+                if (orgs.length > 0) {
+                    const orgDetailResponse = await fetch(`/api/organizations/${orgs[0].id}`)
+                    if (orgDetailResponse.ok) {
+                        const orgDetail = await orgDetailResponse.json()
+                        const bizs = orgDetail.organization.businesses || []
+                        setBusinesses(bizs)
+                        if (bizs.length > 0) {
+                            setSelectedBusinessId(bizs[0].id)
+                            fetchTransactions(bizs[0].id)
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching initial data:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const fetchTransactions = async (bizId: string) => {
+        setIsLoading(true)
+        try {
+            const response = await fetch(`/api/businesses/${bizId}/transactions`)
+            if (response.ok) {
+                const data = await response.json()
+                setTransactions(data.transactions || [])
+            }
+        } catch (error) {
+            console.error("Failed to fetch transactions:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchInitialData()
+    }, [])
+
+    const metrics = {
+        totalReceivables: transactions
+            .filter(t => t.type === 'CREDIT' && t.status === 'PENDING')
+            .reduce((sum, t) => sum + Number(t.amount), 0),
+        todaySales: transactions
+            .filter(t => t.type === 'CREDIT' && new Date(t.createdAt).toDateString() === new Date().toDateString())
+            .reduce((sum, t) => sum + Number(t.amount), 0),
+        paymentsReceived: transactions
+            .filter(t => t.type === 'DEBIT')
+            .reduce((sum, t) => sum + Number(t.amount), 0)
     }
 
     return (
@@ -72,15 +159,29 @@ export default function TransactionsPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {businesses.length > 0 && (
+                        <select
+                            value={selectedBusinessId}
+                            onChange={(e) => {
+                                setSelectedBusinessId(e.target.value)
+                                fetchTransactions(e.target.value)
+                            }}
+                            className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                            {businesses.map((biz) => (
+                                <option key={biz.id} value={biz.id}>{biz.name}</option>
+                            ))}
+                        </select>
+                    )}
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button onClick={() => setTransactionType("CREDIT")}>
+                            <Button onClick={() => setTransactionType("CREDIT")} disabled={!selectedBusinessId}>
                                 <Plus className="h-4 w-4 mr-2" />
                                 Credit (Sale)
                             </Button>
                         </DialogTrigger>
                         <DialogTrigger asChild>
-                            <Button variant="outline" onClick={() => setTransactionType("DEBIT")}>
+                            <Button variant="outline" onClick={() => setTransactionType("DEBIT")} disabled={!selectedBusinessId}>
                                 <Minus className="h-4 w-4 mr-2" />
                                 Debit (Payment)
                             </Button>
@@ -98,6 +199,16 @@ export default function TransactionsPage() {
                             </DialogHeader>
                             <form onSubmit={handleSubmit(onSubmit)}>
                                 <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="customerId">Customer ID (Demo)</Label>
+                                        <Input
+                                            id="customerId"
+                                            placeholder="Enter customer ID"
+                                            onChange={(e) => setSelectedCustomerId(e.target.value)}
+                                            disabled={isSubmitting}
+                                        />
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label htmlFor="amount">Amount (PKR)</Label>
                                         <Input
@@ -170,7 +281,7 @@ export default function TransactionsPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-destructive">PKR 0</div>
+                        <div className="text-2xl font-bold text-destructive">PKR {metrics.totalReceivables.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground">Outstanding balances</p>
                     </CardContent>
                 </Card>
@@ -181,7 +292,7 @@ export default function TransactionsPage() {
                         <Receipt className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">PKR 0</div>
+                        <div className="text-2xl font-bold">PKR {metrics.todaySales.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground">Credit transactions</p>
                     </CardContent>
                 </Card>
@@ -192,19 +303,64 @@ export default function TransactionsPage() {
                         <DollarSign className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">PKR 0</div>
+                        <div className="text-2xl font-bold text-green-600">PKR {metrics.paymentsReceived.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground">Debit transactions</p>
                     </CardContent>
                 </Card>
             </div>
 
             <Card>
-                <CardContent className="pt-12 pb-12 text-center">
-                    <Receipt className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-30" />
-                    <h3 className="text-xl font-semibold mb-2">No transactions yet</h3>
-                    <p className="text-muted-foreground mb-6">
-                        Start recording sales and payments
-                    </p>
+                <CardHeader>
+                    <CardTitle>Recent Transactions</CardTitle>
+                    <CardDescription>View all your credit and debit entries</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                        <div className="text-center py-12">
+                            <p className="text-muted-foreground">Loading transactions...</p>
+                        </div>
+                    ) : transactions.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
+                            <h3 className="text-xl font-semibold mb-2">No transactions yet</h3>
+                            <p className="text-muted-foreground mb-6">Start recording sales and payments</p>
+                        </div>
+                    ) : (
+                        <div className="relative overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-muted-foreground uppercase border-b">
+                                    <tr>
+                                        <th className="px-6 py-3 font-medium">Date</th>
+                                        <th className="px-6 py-3 font-medium">Customer</th>
+                                        <th className="px-6 py-3 font-medium">Description</th>
+                                        <th className="px-6 py-3 font-medium">Amount</th>
+                                        <th className="px-6 py-3 font-medium">Type</th>
+                                        <th className="px-6 py-3 font-medium">Method</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {transactions.map((tx) => (
+                                        <tr key={tx.id} className="border-b hover:bg-muted/50 transition-colors">
+                                            <td className="px-6 py-4">{new Date(tx.createdAt).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 font-medium">{tx.customer?.name}</td>
+                                            <td className="px-6 py-4">{tx.description}</td>
+                                            <td className={`px-6 py-4 font-bold ${tx.type === 'CREDIT' ? 'text-yellow-600' : 'text-green-600'}`}>
+                                                PKR {Number(tx.amount).toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                    tx.type === 'CREDIT' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                    {tx.type === 'CREDIT' ? 'CREDIT (SALE)' : 'DEBIT (PAYMENT)'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-xs font-medium">{tx.paymentMethod}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

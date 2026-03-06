@@ -7,8 +7,9 @@ import { Decimal } from "@prisma/client/runtime/library"
 // GET /api/businesses/[businessId]/products - List products
 export async function GET(
     request: Request,
-    { params }: { params: { businessId: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -25,7 +26,7 @@ export async function GET(
 
         const products = await prisma.product.findMany({
             where: {
-                businessId: params.businessId,
+                businessId: params.id,
                 ...(category && { category }),
                 ...(search && {
                     OR: [
@@ -67,8 +68,9 @@ export async function GET(
 // POST /api/businesses/[businessId]/products - Create product
 export async function POST(
     request: Request,
-    { params }: { params: { businessId: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -120,7 +122,7 @@ export async function POST(
                 description,
                 sku,
                 barcode,
-                businessId: params.businessId,
+                businessId: params.id,
                 category,
                 subcategory,
                 costPrice: new Decimal(costPrice),

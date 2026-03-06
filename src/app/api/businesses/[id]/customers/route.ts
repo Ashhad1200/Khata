@@ -6,8 +6,9 @@ import prisma from "@/lib/prisma"
 // GET /api/businesses/[businessId]/customers - List customers
 export async function GET(
     request: Request,
-    { params }: { params: { businessId: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -21,33 +22,81 @@ export async function GET(
         const { searchParams } = new URL(request.url)
         const status = searchParams.get('status')
         const branchId = searchParams.get('branchId')
+        const search = searchParams.get('search') || ''
+        const page = parseInt(searchParams.get('page') || '1')
+        const limit = parseInt(searchParams.get('limit') || '20')
+        const skip = (page - 1) * limit
 
-        const customers = await prisma.customer.findMany({
-            where: {
-                businessId: params.businessId,
-                ...(status && { status }),
-                ...(branchId && { branchId }),
-            },
-            include: {
-                branch: {
-                    select: {
-                        id: true,
-                        name: true,
+        const where = {
+            businessId: params.id,
+            ...(status && { status }),
+            ...(branchId && { branchId }),
+            ...(search && {
+                OR: [
+                    { name: { contains: search, mode: 'insensitive' as any } },
+                    { phone: { contains: search, mode: 'insensitive' as any } },
+                    { email: { contains: search, mode: 'insensitive' as any } },
+                ]
+            }),
+        }
+
+        const [customersData, total] = await Promise.all([
+            prisma.customer.findMany({
+                where,
+                include: {
+                    branch: {
+                        select: {
+                            id: true,
+                            name: true,
+                        }
+                    },
+                    transactions: {
+                        select: {
+                            amount: true,
+                            type: true,
+                        }
+                    },
+                    _count: {
+                        select: {
+                            transactions: true,
+                            invoices: true,
+                        }
                     }
                 },
-                _count: {
-                    select: {
-                        transactions: true,
-                        invoices: true,
-                    }
-                }
-            },
-            orderBy: {
-                createdAt: 'desc'
+                orderBy: {
+                    createdAt: 'desc'
+                },
+                take: limit,
+                skip
+            }),
+            prisma.customer.count({ where })
+        ])
+
+        // Calculate current balance for each customer
+        const customers = customersData.map(customer => {
+            const currentBalance = customer.transactions.reduce((acc, tx) => {
+                if (tx.type === 'CREDIT') return acc + Number(tx.amount)
+                if (tx.type === 'DEBIT') return acc - Number(tx.amount)
+                return acc
+            }, 0)
+
+            // Remove transactions from response to keep it light
+            const { transactions, ...customerWithoutTransactions } = customer
+            return {
+                ...customerWithoutTransactions,
+                currentBalance
             }
         })
 
-        return NextResponse.json({ customers })
+        return NextResponse.json({
+            customers,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        })
     } catch (error) {
         console.error("[CUSTOMERS_GET]", error)
         return NextResponse.json(
@@ -60,8 +109,9 @@ export async function GET(
 // POST /api/businesses/[businessId]/customers - Add customer
 export async function POST(
     request: Request,
-    { params }: { params: { businessId: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -85,7 +135,7 @@ export async function POST(
         // Check if phone already exists for this business
         const existing = await prisma.customer.findFirst({
             where: {
-                businessId: params.businessId,
+                businessId: params.id,
                 phone
             }
         })
@@ -103,7 +153,7 @@ export async function POST(
                 phone,
                 email,
                 address,
-                businessId: params.businessId,
+                businessId: params.id,
                 branchId,
                 creditLimit,
                 customerType: customerType || "RETAIL",

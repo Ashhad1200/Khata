@@ -6,8 +6,9 @@ import prisma from "@/lib/prisma"
 // GET /api/organizations/[id] - Get organization details
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -94,8 +95,9 @@ export async function GET(
 // PATCH /api/organizations/[id] - Update organization
 export async function PATCH(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -165,8 +167,9 @@ export async function PATCH(
 // DELETE /api/organizations/[id] - Delete organization
 export async function DELETE(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 

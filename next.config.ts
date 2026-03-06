@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
+import withSerwistInit from "@serwist/next";
+
+const withSerwist = withSerwistInit({
+    swSrc: "src/app/sw.ts",
+    swDest: "public/sw.js",
+    disable: process.env.NODE_ENV !== "production",
+});
 
 const nextConfig: NextConfig = {
-    output: 'standalone', // For Docker production builds
+    output: 'standalone',
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

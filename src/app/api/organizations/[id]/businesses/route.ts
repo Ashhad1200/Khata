@@ -6,8 +6,9 @@ import prisma from "@/lib/prisma"
 // GET /api/organizations/[id]/businesses - List businesses in organization
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -74,8 +75,9 @@ export async function GET(
 // POST /api/organizations/[id]/businesses - Create business under organization
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    props: { params: Promise<{ id: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 

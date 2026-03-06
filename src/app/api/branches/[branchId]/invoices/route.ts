@@ -7,8 +7,9 @@ import { Decimal } from "@prisma/client/runtime/library"
 // GET /api/branches/[branchId]/invoices - List invoices
 export async function GET(
     request: Request,
-    { params }: { params: { branchId: string } }
+    props: { params: Promise<{ branchId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -35,6 +36,7 @@ export async function GET(
                         id: true,
                         name: true,
                         phone: true,
+                        address: true,
                     }
                 },
                 transaction: {
@@ -42,6 +44,7 @@ export async function GET(
                         id: true,
                         type: true,
                         createdAt: true,
+                        items: true,
                     }
                 }
             },
@@ -64,8 +67,9 @@ export async function GET(
 // POST /api/branches/[branchId]/invoices - Create invoice
 export async function POST(
     request: Request,
-    { params }: { params: { branchId: string } }
+    props: { params: Promise<{ branchId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 

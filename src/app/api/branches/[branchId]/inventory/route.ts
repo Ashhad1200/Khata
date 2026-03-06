@@ -5,10 +5,12 @@ import prisma from "@/lib/prisma"
 import { Decimal } from "@prisma/client/runtime/library"
 
 // GET /api/branches/[branchId]/inventory - Get branch inventory
+// GET /api/branches/[branchId]/inventory - Get branch inventory
 export async function GET(
     request: Request,
-    { params }: { params: { branchId: string } }
+    props: { params: Promise<{ branchId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
@@ -21,17 +23,11 @@ export async function GET(
 
         const { searchParams } = new URL(request.url)
         const departmentId = searchParams.get('departmentId')
-        const lowStock = searchParams.get('lowStock') === 'true'
 
         const inventory = await prisma.branchInventory.findMany({
             where: {
                 branchId: params.branchId,
                 ...(departmentId && { departmentId }),
-                ...(lowStock && {
-                    stock: {
-                        lte: prisma.branchInventory.fields.lowStockThreshold
-                    }
-                }),
             },
             include: {
                 product: {
@@ -62,7 +58,16 @@ export async function GET(
             }
         })
 
-        return NextResponse.json({ inventory })
+        // Filter low stock items if requested
+        const lowStock = searchParams.get('lowStock') === 'true'
+        const filteredInventory = lowStock
+            ? inventory.filter(item =>
+                item.lowStockThreshold &&
+                Number(item.stock) <= Number(item.lowStockThreshold)
+            )
+            : inventory
+
+        return NextResponse.json({ inventory: filteredInventory })
     } catch (error) {
         console.error("[INVENTORY_GET]", error)
         return NextResponse.json(
@@ -73,10 +78,12 @@ export async function GET(
 }
 
 // POST /api/branches/[branchId]/inventory - Add/Update inventory
+// POST /api/branches/[branchId]/inventory - Add/Update inventory
 export async function POST(
     request: Request,
-    { params }: { params: { branchId: string } }
+    props: { params: Promise<{ branchId: string }> }
 ) {
+    const params = await props.params;
     try {
         const session = await getServerSession(authOptions)
 
